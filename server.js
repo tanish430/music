@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const ytdl = require('ytdl-core');
+const youtubedl = require('youtube-dl-exec');
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const LIBRARY_FILE = path.join(__dirname, 'library.json');
@@ -97,34 +97,50 @@ app.post('/api/upload', upload.array('tracks'), async (req, res) => {
 
 app.post('/api/youtube', async (req, res) => {
   const { url } = req.body;
+  console.log('YouTube download request for URL:', url);
 
-  if (!url || !ytdl.validateURL(url)) {
-    return res.status(400).json({ error: 'Invalid YouTube URL' });
+  if (!url) {
+    console.log('No URL provided');
+    return res.status(400).json({ error: 'No URL provided' });
   }
 
   try {
-    const videoId = ytdl.getURLVideoID(url);
-    const info = await ytdl.getInfo(videoId);
-    const title = info.videoDetails.title.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim();
-    const filename = `${Date.now()}-${title}.mp3`;
-    const filePath = path.join(UPLOAD_DIR, filename);
-
-    // Download audio stream
-    const stream = ytdl(videoId, { filter: 'audioonly', quality: 'highestaudio' });
-    const writeStream = fs.createWriteStream(filePath);
-
-    stream.pipe(writeStream);
-
-    await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
-      stream.on('error', reject);
+    console.log('Getting video info...');
+    // First get video info
+    const info = await youtubedl.exec(url, {
+      dumpJson: true,
+      noWarnings: true,
+      noCallHome: true,
+      noCheckCertificate: true,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true,
     });
 
+    const videoInfo = JSON.parse(info.stdout);
+    const title = videoInfo.title.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim();
+    console.log('Video title:', title);
+
+    const filename = `${Date.now()}-${title}.mp4`;
+    const filePath = path.join(UPLOAD_DIR, filename);
+    console.log('Downloading to:', filePath);
+
+    // Download video file (without audio extraction since ffmpeg not available)
+    await youtubedl.exec(url, {
+      output: filePath,
+      format: 'best[height<=720]', // Best quality up to 720p
+      noWarnings: true,
+      noCallHome: true,
+      noCheckCertificate: true,
+      preferFreeFormats: true,
+      youtubeSkipDashManifest: true,
+    });
+
+    console.log('Download completed, computing hash...');
     // Compute hash
     const hash = await computeHash(filePath);
     const duplicate = library.some((item) => item.id === hash);
     if (duplicate) {
+      console.log('Duplicate found, removing file');
       fs.unlinkSync(filePath);
       return res.status(409).json({ error: 'Song already exists in library' });
     }
@@ -133,7 +149,7 @@ app.post('/api/youtube', async (req, res) => {
       id: hash,
       title: title,
       artist: 'YouTube Download',
-      type: 'file',
+      type: 'video', // Changed from 'file' to 'video'
       size: fs.statSync(filePath).size,
       fileName: filename,
       url: `/uploads/${encodeURIComponent(filename)}`,
@@ -142,10 +158,12 @@ app.post('/api/youtube', async (req, res) => {
 
     library.push(track);
     saveLibrary(library);
+    console.log('YouTube download completed successfully');
     res.json({ added: [track] });
   } catch (error) {
-    console.error('YouTube download failed:', error);
-    res.status(500).json({ error: 'Failed to download from YouTube' });
+    console.error('YouTube download failed:', error.message);
+    console.error('Full error:', error);
+    res.status(500).json({ error: `Failed to download from YouTube: ${error.message}` });
   }
 });
 

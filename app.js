@@ -2,6 +2,7 @@ const uploadInput = document.getElementById('songUpload');
 const playlistEl = document.getElementById('playlist');
 const trackCountEl = document.getElementById('trackCount');
 const audioPlayer = document.getElementById('audioPlayer');
+const videoPlayer = document.getElementById('videoPlayer');
 const currentTitleEl = document.getElementById('currentTitle');
 const currentMetaEl = document.getElementById('currentMeta');
 const playPauseBtn = document.getElementById('playPauseBtn');
@@ -81,12 +82,21 @@ const fetchTracks = async () => {
     trackIds.add(track.id);
 
     if (!track.durationText || track.durationText === 'Loading…') {
-      const metadataAudio = new Audio(track.url);
-      metadataAudio.addEventListener('loadedmetadata', () => {
-        loadedTrack.durationText = formatDuration(metadataAudio.duration);
-        updatePlaylist();
-        metadataAudio.remove();
-      });
+      if (track.type === 'video') {
+        const metadataVideo = document.createElement('video');
+        metadataVideo.src = track.url;
+        metadataVideo.addEventListener('loadedmetadata', () => {
+          loadedTrack.durationText = formatDuration(metadataVideo.duration);
+          updatePlaylist();
+        });
+      } else {
+        const metadataAudio = new Audio(track.url);
+        metadataAudio.addEventListener('loadedmetadata', () => {
+          loadedTrack.durationText = formatDuration(metadataAudio.duration);
+          updatePlaylist();
+          metadataAudio.remove();
+        });
+      }
     }
   });
   hideAppWarning();
@@ -137,12 +147,23 @@ const setNowPlaying = (track) => {
     currentTitleEl.textContent = 'Nothing selected';
     currentMetaEl.textContent = 'Upload a song to start playback.';
     audioPlayer.removeAttribute('src');
+    videoPlayer.removeAttribute('src');
     return;
   }
   currentTitleEl.textContent = track.title;
   currentMetaEl.textContent = `${track.artist || 'Unknown artist'} • ${track.durationText}`;
-  audioPlayer.src = track.url;
-  audioPlayer.load();
+
+  if (track.type === 'video') {
+    audioPlayer.style.display = 'none';
+    videoPlayer.style.display = 'block';
+    videoPlayer.src = track.url;
+    videoPlayer.load();
+  } else {
+    videoPlayer.style.display = 'none';
+    audioPlayer.style.display = 'block';
+    audioPlayer.src = track.url;
+    audioPlayer.load();
+  }
 };
 
 const playTrack = (index) => {
@@ -152,21 +173,40 @@ const playTrack = (index) => {
   currentIndex = index;
   setNowPlaying(track);
   updatePlaylist();
-  audioPlayer.play();
+
+  if (track.type === 'video') {
+    videoPlayer.play();
+  } else {
+    audioPlayer.play();
+  }
   isPlaying = true;
   playPauseBtn.textContent = '⏸';
 };
 
 const togglePlayPause = () => {
-  if (!audioPlayer.src) return;
-  if (audioPlayer.paused) {
-    audioPlayer.play();
-    playPauseBtn.textContent = '⏸';
-    isPlaying = true;
+  const currentTrack = tracks[currentIndex];
+  if (!currentTrack) return;
+
+  if (currentTrack.type === 'video') {
+    if (videoPlayer.paused) {
+      videoPlayer.play();
+      playPauseBtn.textContent = '⏸';
+      isPlaying = true;
+    } else {
+      videoPlayer.pause();
+      playPauseBtn.textContent = '▶';
+      isPlaying = false;
+    }
   } else {
-    audioPlayer.pause();
-    playPauseBtn.textContent = '▶';
-    isPlaying = false;
+    if (audioPlayer.paused) {
+      audioPlayer.play();
+      playPauseBtn.textContent = '⏸';
+      isPlaying = true;
+    } else {
+      audioPlayer.pause();
+      playPauseBtn.textContent = '▶';
+      isPlaying = false;
+    }
   }
 };
 
