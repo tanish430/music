@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offline Music App</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">♪</div>
+        <div>
+          <h1>SoundNest</h1>
+          <p>Offline player</p>
+        </div>
+      </div>
+      <nav>
+        <button type="button" class="nav-btn active" data-page="home">Home</button>
+        <button type="button" class="nav-btn" data-page="library">Library</button>
+        <button type="button" class="nav-btn" data-page="upload">Upload</button>
+      </nav>
+      <div class="sidebar-footer">
+        <p>Play your own music without internet</p>
+      </div>
+    </aside>
+
+    <main class="main-view">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">Discover Your Music</h2>
+          <p id="pageSubtitle">Upload tracks, play offline, no login needed.</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search songs..." />
+            <button type="button" id="clearSearch" title="Clear search">✕</button>
+          </div>
+          <div class="upload-panel">
+            <label class="upload-button">
+              Upload songs
+              <input id="songUpload" type="file" accept="audio/*" multiple />
+            </label>
+            <button type="button" id="youtubeBtn" class="upload-button youtube-btn" title="Add YouTube link">
+              Add YouTube
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div id="appWarning" class="app-warning">Make sure you open the app at <strong>http://localhost:3001</strong>.</div>
+      <div id="pageHint" class="page-hint">Your playlist shows uploaded songs and now playing details.</div>
+
+      <section class="content-grid">
+        <section class="playlist-panel">
+          <div class="panel-header">
+            <h3>My Offline Playlist</h3>
+            <span id="trackCount">0 tracks</span>
+          </div>
+          <div id="playlist" class="playlist"></div>
+        </section>
+
+        <section class="now-playing-panel">
+          <div class="panel-header">
+            <h3>Now Playing</h3>
+          </div>
+          <div class="now-playing-card">
+            <div class="track-art">
+              <div class="art-logo">♪</div>
+            </div>
+            <div class="track-info">
+              <p class="track-title" id="currentTitle">Nothing selected</p>
+              <p class="track-meta" id="currentMeta">Upload a song to start offline playback.</p>
+            </div>
+            <audio id="audioPlayer" controls></audio>
+            <div class="player-actions">
+              <button id="prevBtn" title="Previous">⏮</button>
+              <button id="playPauseBtn" title="Play/Pause">▶</button>
+              <button id="nextBtn" title="Next">⏭</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
