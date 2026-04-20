@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const ytdl = require('ytdl-core');
 
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const LIBRARY_FILE = path.join(__dirname, 'library.json');
@@ -94,31 +95,58 @@ app.post('/api/upload', upload.array('tracks'), async (req, res) => {
   res.json({ added, skipped });
 });
 
-app.post('/api/youtube', (req, res) => {
-  const { id, title, artist, type, url, uploadedAt } = req.body;
+app.post('/api/youtube', async (req, res) => {
+  const { url } = req.body;
 
-  if (!id || !url || type !== 'youtube') {
-    return res.status(400).json({ error: 'Invalid YouTube link data' });
+  if (!url || !ytdl.validateURL(url)) {
+    return res.status(400).json({ error: 'Invalid YouTube URL' });
   }
 
-  // Check for duplicate YouTube links
-  const duplicate = library.some((item) => item.id === id);
-  if (duplicate) {
-    return res.status(409).json({ error: 'YouTube link already exists' });
+  try {
+    const videoId = ytdl.getURLVideoID(url);
+    const info = await ytdl.getInfo(videoId);
+    const title = info.videoDetails.title.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim();
+    const filename = `${Date.now()}-${title}.mp3`;
+    const filePath = path.join(UPLOAD_DIR, filename);
+
+    // Download audio stream
+    const stream = ytdl(videoId, { filter: 'audioonly', quality: 'highestaudio' });
+    const writeStream = fs.createWriteStream(filePath);
+
+    stream.pipe(writeStream);
+
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+      stream.on('error', reject);
+    });
+
+    // Compute hash
+    const hash = await computeHash(filePath);
+    const duplicate = library.some((item) => item.id === hash);
+    if (duplicate) {
+      fs.unlinkSync(filePath);
+      return res.status(409).json({ error: 'Song already exists in library' });
+    }
+
+    const track = {
+      id: hash,
+      title: title,
+      artist: 'YouTube Download',
+      type: 'file',
+      size: fs.statSync(filePath).size,
+      fileName: filename,
+      url: `/uploads/${encodeURIComponent(filename)}`,
+      uploadedAt: new Date().toISOString(),
+    };
+
+    library.push(track);
+    saveLibrary(library);
+    res.json({ added: [track] });
+  } catch (error) {
+    console.error('YouTube download failed:', error);
+    res.status(500).json({ error: 'Failed to download from YouTube' });
   }
-
-  const track = {
-    id,
-    title,
-    artist,
-    type,
-    url,
-    uploadedAt,
-  };
-
-  library.push(track);
-  saveLibrary(library);
-  res.json({ added: [track] });
 });
 
 const startServer = (port, maxRetries = 5) => {

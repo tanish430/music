@@ -120,12 +120,12 @@ const updatePlaylist = () => {
     card.type = 'button';
     card.className = 'track-card' + (originalIndex === currentIndex ? ' active' : '');
     card.innerHTML = `
-      <div class="track-thumb">${track.type === 'youtube' ? '▶' : originalIndex + 1}</div>
+      <div class="track-thumb">${originalIndex + 1}</div>
       <div class="track-details">
         <strong>${track.title}</strong>
-        <span>${track.artist || 'Unknown artist'} • ${track.durationText || 'External'}</span>
+        <span>${track.artist || 'Unknown artist'} • ${track.durationText || 'Loading…'}</span>
       </div>
-      <span>${track.type === 'youtube' ? 'YouTube' : (track.durationText || 'External')}</span>
+      <span>${track.durationText || 'Loading…'}</span>
     `;
     card.addEventListener('click', () => playTrack(originalIndex));
     playlistEl.appendChild(card);
@@ -148,12 +148,6 @@ const setNowPlaying = (track) => {
 const playTrack = (index) => {
   if (index < 0 || index >= tracks.length) return;
   const track = tracks[index];
-
-  if (track.type === 'youtube') {
-    // Open YouTube video in new tab
-    window.open(track.url, '_blank');
-    return;
-  }
 
   currentIndex = index;
   setNowPlaying(track);
@@ -189,7 +183,7 @@ const playPrev = () => {
 };
 
 const addYouTubeLink = async () => {
-  const url = prompt('Enter YouTube URL:');
+  const url = prompt('Enter YouTube URL to download:');
   if (!url || !url.trim()) return;
 
   // Basic YouTube URL validation
@@ -199,32 +193,22 @@ const addYouTubeLink = async () => {
     return;
   }
 
-  const videoId = url.match(youtubeRegex)[1];
-  const track = {
-    id: `youtube-${videoId}`,
-    title: `YouTube Video ${videoId}`,
-    artist: 'YouTube Link',
-    type: 'youtube',
-    url: url,
-    uploadedAt: new Date().toISOString(),
-  };
-
   try {
     const response = await fetch(`${API_BASE}/api/youtube`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(track),
+      body: JSON.stringify({ url }),
     });
 
     if (response.ok) {
       await fetchTracks();
     } else {
       const error = await response.json();
-      alert(`Failed to add YouTube link: ${error.error || 'Unknown error'}`);
+      alert(`Failed to download YouTube song: ${error.error || 'Unknown error'}`);
     }
   } catch (error) {
-    console.error('Error adding YouTube link:', error);
-    alert('Failed to add YouTube link. Please try again.');
+    console.error('Error downloading YouTube song:', error);
+    alert('Failed to download YouTube song. Please try again.');
   }
 };
 
